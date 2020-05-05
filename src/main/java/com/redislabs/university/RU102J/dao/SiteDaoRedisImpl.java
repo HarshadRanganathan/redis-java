@@ -3,11 +3,16 @@ package com.redislabs.university.RU102J.dao;
 import com.redislabs.university.RU102J.api.Site;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.ScanParams;
+import redis.clients.jedis.ScanResult;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class SiteDaoRedisImpl implements SiteDao {
     private final JedisPool jedisPool;
+
+    private final String SCAN_POINTER_START = String.valueOf(0);
 
     public SiteDaoRedisImpl(JedisPool jedisPool) {
         this.jedisPool = jedisPool;
@@ -41,6 +46,24 @@ public class SiteDaoRedisImpl implements SiteDao {
     // Challenge #1
     @Override
     public Set<Site> findAll() {
-        return Collections.emptySet();
+        Set<String> siteIds = new HashSet<>();
+        try(Jedis jedis = jedisPool.getResource()) {
+            final ScanParams scanParams = new ScanParams().count(100);
+            String cursor = SCAN_POINTER_START;
+            boolean scanFinished = false;
+            while (!scanFinished) {
+                final ScanResult<String> scanResult = jedis.sscan(RedisSchema.getSiteIDsKey(), cursor, scanParams);
+                siteIds.addAll(scanResult.getResult());
+                if(scanResult.getCursor().equals(SCAN_POINTER_START)) scanFinished = true;
+                cursor = scanResult.getCursor();
+            }
+        }
+        if(siteIds.size() == 0) return Collections.emptySet();
+        else {
+            return siteIds.stream()
+                    .map(id -> findById(Long.parseLong(id.split(":")[3])))
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+        }
     }
 }

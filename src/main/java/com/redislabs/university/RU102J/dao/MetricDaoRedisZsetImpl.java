@@ -51,15 +51,15 @@ public class MetricDaoRedisZsetImpl implements MetricDao {
         String metricKey = RedisSchema.getDayMetricKey(siteId, unit, dateTime);
         Integer minuteOfDay = getMinuteOfDay(dateTime);
 
-        // START Challenge #2
-        // END Challenge #2
+        jedis.zadd(metricKey, minuteOfDay, new MeasurementMinute(value, minuteOfDay).toString());
+        jedis.expire(metricKey, METRIC_EXPIRATION_SECONDS);
     }
 
     /**
      * Return the N most-recent minute-level measurements starting at the
      * provided day.
      * TODO: Watch out for large data structures when sharding
-     * TODO: Or implement your own expiry with zremrange
+     * TODO: Or implement your own expiry with zremrangeSiteStatsDaoRedisImpl
      */
     @Override
     public List<Measurement> getRecent(Long siteId, MetricUnit unit,
